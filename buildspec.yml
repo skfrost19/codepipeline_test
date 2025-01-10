@@ -1,0 +1,40 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - echo Installing dependencies from requirements.txt...
+      - python -m pip install --upgrade pip
+      - pip install -r lambda_code/requirements.txt -t ./package
+
+  pre_build:
+    commands:
+      - echo Copying Lambda function code into the package directory...
+      - cp lambda_code/lambda_function.py ./package/
+
+  build:
+    commands:
+      - echo Building the Lambda deployment package...
+      - mkdir -p dist
+      - cd package
+      - zip -r ../dist/lambda_function.zip ./*
+      - cd ..
+
+  post_build:
+    commands:
+      - echo Deploying Lambda function using AWS CLI...
+      - aws lambda create-function --function-name TestLambdaFunction \
+          --runtime python3.9 \
+          --role <YOUR_LAMBDA_ROLE_ARN> \
+          --handler lambda_function.lambda_handler \
+          --zip-file fileb://dist/lambda_function.zip \
+          --timeout 10 \
+          --memory-size 128 || \
+        aws lambda update-function-code --function-name TestLambdaFunction \
+          --zip-file fileb://dist/lambda_function.zip
+
+artifacts:
+  files:
+    - dist/lambda_function.zip
